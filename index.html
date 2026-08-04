@@ -784,7 +784,8 @@ function partsMonthDraft(){
     pecasFaturadas: existing?.pecasFaturadas || 0,
     pecasSolicitadas: existing?.pecasSolicitadas || 0,
     acessoriosFaturadas: existing?.acessoriosFaturadas || 0,
-    acessoriosSolicitadas: existing?.acessoriosSolicitadas || 0
+    acessoriosSolicitadas: existing?.acessoriosSolicitadas || 0,
+    obsParts: existing?.obsParts || ""
   };
 }
 function viewPartsMensal(){
@@ -798,6 +799,7 @@ function viewPartsMensal(){
           <div class="field"><label>Peças faturadas</label><input type="number" step="1" min="0" id="pf-pecas-fat" value="${d.pecasFaturadas}"></div>
           <div class="field"><label>Peças c/ solicitação de assistência</label><input type="number" step="1" min="0" id="pf-pecas-sol" value="${d.pecasSolicitadas}"></div>
           <div class="field"><label>Taxa de assistência — Peças</label><div id="pf-taxa-pecas" style="padding:10px 0; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; color:var(--teal-dark);">${taxaAssistencia(d.pecasFaturadas, d.pecasSolicitadas).toFixed(2)}%</div></div>
+          <div class="field" style="grid-column:1/-1;"><label>Observação — ${fmtMonthLabel(state.selectedMonth)}</label><textarea id="pf-obs" placeholder="Anotações sobre o mês (contexto, causas, ações etc.)...">${escapeHtml(d.obsParts||"")}</textarea></div>
         </div>
       </fieldset>
       <div class="save-bar">
@@ -880,6 +882,7 @@ function wirePartsMensal(){
     const entry = state.monthlyData[state.selectedMonth] ? JSON.parse(JSON.stringify(state.monthlyData[state.selectedMonth])) : currentMonthDraft();
     entry.pecasFaturadas = num(document.getElementById("pf-pecas-fat").value);
     entry.pecasSolicitadas = num(document.getElementById("pf-pecas-sol").value);
+    entry.obsParts = document.getElementById("pf-obs").value;
     state.monthlyData[state.selectedMonth] = entry;
     await saveMonthlyData();
     const msg = document.getElementById("save-parts-msg");
@@ -1488,6 +1491,7 @@ function baseMonthEntry(){
   return {
     score:0, avaliacao:0, ocorrencias:0, skuCount:0, ocorrenciasTotais:0,
     pecasFaturadas:0, pecasSolicitadas:0, acessoriosFaturadas:0, acessoriosSolicitadas:0,
+    obsParts:"", obsSmartcloud:"",
     qualidade: {
       almoxarifado:{ amostra:0, naoConforme:0 },
       estoque:{ amostra:0, naoConforme:0 },
@@ -1606,6 +1610,7 @@ function viewDataMensal(){
           </div>
           <div class="field"><label>Número de SKU</label><input type="number" step="1" min="0" id="f-sku" value="${draft.skuCount}"></div>
           <div class="field"><label>Ocorrências totais (qtd.)</label><input type="number" step="1" min="0" id="f-ocorrencias-totais" value="${draft.ocorrenciasTotais}"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Observação — ${fmtMonthLabel(state.selectedMonth)}</label><textarea id="f-obs" placeholder="Anotações sobre o mês (contexto, causas, ações etc.)...">${escapeHtml(draft.obsSmartcloud||"")}</textarea></div>
         </div>
         <p class="hint" style="margin:10px 0 0;">Score e Avaliação: 0 a 5, quanto maior melhor. Ocorrências: % de pedidos com ocorrência, quanto menor melhor — as faixas de cor seguem a mesma tabela, mas invertida.</p>
       </fieldset>
@@ -1714,6 +1719,7 @@ function wireDataMensal(){
     draft.ocorrencias = num(document.getElementById("f-ocorrencias").value);
     draft.skuCount = num(document.getElementById("f-sku").value);
     draft.ocorrenciasTotais = num(document.getElementById("f-ocorrencias-totais").value);
+    draft.obsSmartcloud = document.getElementById("f-obs").value;
     state.monthlyData[state.selectedMonth] = draft;
     await saveMonthlyData();
     const msg = document.getElementById("save-msg");
