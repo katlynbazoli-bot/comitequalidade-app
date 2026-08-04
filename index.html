@@ -189,6 +189,21 @@ window.CHART_READY = new Promise((resolve)=>{
   fieldset{ border:none; padding:0; margin:0 0 24px; }
   legend{ font-size:14px; font-weight:700; color:var(--teal-dark); margin-bottom:12px; padding:0; font-family:'Fraunces',serif; }
 
+  /* ---------- Evidências ---------- */
+  .evid-upload{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .evid-hint{ font-size:12px; color:var(--ink-faint); }
+  .evid-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; }
+  .evid-item{ position:relative; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#FBFCFB; }
+  .evid-item a{ display:block; color:inherit; text-decoration:none; }
+  .evid-thumb{ width:100%; height:90px; object-fit:cover; display:block; background:#EAEFE9; }
+  .evid-file{ width:100%; height:90px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--ink-faint); background:#EAEFE9; }
+  .evid-file svg{ width:26px; height:26px; }
+  .evid-name{ font-size:11px; padding:6px 8px; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-top:1px solid var(--border); }
+  .evid-remove{ all:unset; position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:8px; background:rgba(255,255,255,.92); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--rose); }
+  .evid-remove:hover{ background:#fff; }
+  .evid-remove svg{ width:13px; height:13px; }
+  .evid-empty{ font-size:12.5px; color:var(--ink-faint); padding:4px 0 8px; }
+
   /* ---------- Kanban ---------- */
   .kanban-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
   .kanban{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; align-items:start; }
@@ -316,6 +331,7 @@ const state = {
   actions: [],        // { id, title, desc, responsavel, prazo, status }
   diario: [],         // { id, date, setor, gravidade, descricao, acao }
   treinamentos: [],   // { id, date, nome, area, participantes, status }
+  evidencias: { parts:{}, smartcloud:{}, qualidade:{} }, // { [secao]: { "2026-08": [ {id,name,type,size,dataUrl,addedAt} ] } }
   loaded: false,
   charts: {}          // chart.js instances keyed by canvas id
 };
@@ -368,6 +384,10 @@ async function loadAll(){
     const v = await storageGet("colibri-at-treinamentos");
     state.treinamentos = v || [];
   }catch(e){ state.treinamentos = []; }
+  try{
+    const v = await storageGet("colibri-at-evidencias");
+    state.evidencias = v || { parts:{}, smartcloud:{}, qualidade:{} };
+  }catch(e){ state.evidencias = { parts:{}, smartcloud:{}, qualidade:{} }; }
 
   const keys = Object.keys(state.monthlyData).sort();
   if(keys.length) state.selectedMonth = keys[keys.length-1];
@@ -393,6 +413,95 @@ async function saveTreinamentos(){
   try{ await storageSet("colibri-at-treinamentos", state.treinamentos); }
   catch(e){ console.error("Falha ao salvar treinamentos", e); }
 }
+async function saveEvidencias(){
+  try{ await storageSet("colibri-at-evidencias", state.evidencias); }
+  catch(e){ console.error("Falha ao salvar evidências", e); }
+}
+
+/* ============================================================
+   EVIDÊNCIAS (imagens/arquivos mês a mês) — componente reutilizável
+   Seções: "parts" (Análise Gestão Pós Venda), "smartcloud", "qualidade"
+============================================================ */
+const EVID_MAX_BYTES = 5 * 1024 * 1024; // 5MB por arquivo
+function evidenciasForMonth(section){
+  return (state.evidencias[section] && state.evidencias[section][state.selectedMonth]) || [];
+}
+function fmtFileSize(bytes){
+  if(!bytes) return "0 KB";
+  if(bytes < 1024*1024) return Math.max(1, Math.round(bytes/1024)) + " KB";
+  return (bytes/(1024*1024)).toFixed(1) + " MB";
+}
+function fileToDataUrl(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(reader.result);
+    reader.onerror = ()=>reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+function evidenciaSectionHtml(section){
+  const items = evidenciasForMonth(section);
+  return `
+    <div class="panel">
+      <fieldset style="margin-bottom:0;">
+        <legend>Evidências — ${fmtMonthLabel(state.selectedMonth)}</legend>
+        <div class="evid-upload">
+          <label class="btn ghost" for="evid-input-${section}" style="cursor:pointer;">${ICONS.clip}Adicionar imagens/arquivos</label>
+          <input type="file" id="evid-input-${section}" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none;">
+          <span class="evid-hint">Imagens, PDF ou planilhas · até 5MB por arquivo</span>
+        </div>
+        ${items.length ? `
+          <div class="evid-grid" id="evid-grid-${section}">
+            ${items.map(it=>`
+              <div class="evid-item" data-id="${it.id}">
+                <a href="${it.dataUrl}" download="${escapeHtml(it.name)}" target="_blank" rel="noopener">
+                  ${it.type && it.type.startsWith("image/")
+                    ? `<img class="evid-thumb" src="${it.dataUrl}" alt="${escapeHtml(it.name)}">`
+                    : `<div class="evid-file">${ICONS.file}</div>`}
+                  <div class="evid-name">${escapeHtml(it.name)}</div>
+                </a>
+                <button class="evid-remove" data-remove="${it.id}" title="Remover">${ICONS.trash}</button>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<div class="evid-empty">Nenhuma evidência anexada para este mês ainda.</div>`}
+      </fieldset>
+    </div>
+  `;
+}
+function wireEvidenciaSection(section){
+  const input = document.getElementById(`evid-input-${section}`);
+  if(!input) return;
+  input.addEventListener("change", async ()=>{
+    const files = Array.from(input.files || []);
+    if(!files.length) return;
+    const tooBig = files.filter(f=>f.size > EVID_MAX_BYTES);
+    const valid = files.filter(f=>f.size <= EVID_MAX_BYTES);
+    for(const file of valid){
+      try{
+        const dataUrl = await fileToDataUrl(file);
+        if(!state.evidencias[section]) state.evidencias[section] = {};
+        if(!state.evidencias[section][state.selectedMonth]) state.evidencias[section][state.selectedMonth] = [];
+        state.evidencias[section][state.selectedMonth].push({
+          id: uid(), name: file.name, type: file.type, size: file.size, dataUrl, addedAt: new Date().toISOString()
+        });
+      }catch(e){ console.error("Falha ao ler arquivo", file.name, e); }
+    }
+    await saveEvidencias();
+    if(tooBig.length) alert(`${tooBig.length} arquivo(s) não foram anexados por excederem 5MB: ${tooBig.map(f=>f.name).join(", ")}`);
+    input.value = "";
+    renderView();
+  });
+  document.querySelectorAll(`#evid-grid-${section} [data-remove]`).forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const id = btn.getAttribute("data-remove");
+      const arr = state.evidencias[section]?.[state.selectedMonth] || [];
+      state.evidencias[section][state.selectedMonth] = arr.filter(it=>it.id !== id);
+      await saveEvidencias();
+      renderView();
+    });
+  });
+}
 
 /* ============================================================
    ICONS (inline svg, stroke-based, consistent set)
@@ -414,6 +523,8 @@ const ICONS = {
   cloud:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 18a4.5 4.5 0 01-.5-8.98A5.5 5.5 0 0117 8a4 4 0 010 8H7z" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
   qualidade:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3v2h6V3M8 11l2.5 2.5L16 8"/></svg>`,
   treino:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9l10-4 10 4-10 4-10-4z" stroke-linejoin="round"/><path d="M6 11v5c0 1.5 2.5 3 6 3s6-1.5 6-3v-5M22 9v6" stroke-linecap="round"/></svg>`,
+  clip:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.5l-8.5 8.5a4.5 4.5 0 01-6.36-6.36L14.5 6.28a3 3 0 014.24 4.24L10.4 19.1a1.5 1.5 0 01-2.12-2.12l7.78-7.78" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  file:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" stroke-linejoin="round"/><path d="M14 3v5h5"/></svg>`,
   bird:`<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 34c6-2 10-8 20-8 12 0 16 10 26 6-4 8-12 12-20 12-4 0-6 2-6 6 0 3 2 5 5 6-6 2-12 0-15-5-2 3-6 4-9 3 3-2 4-5 3-8-6-2-10-7-4-12z" fill="#EAF3F0" opacity="0.9"/><circle cx="46" cy="30" r="2" fill="#123E37"/><path d="M50 28c3-1 6-1 8 1-2 2-5 3-8 2z" fill="#C15A2E"/></svg>`
 };
 
@@ -807,6 +918,7 @@ function viewPartsMensal(){
         <span class="save-msg" id="save-parts-msg">Salvo com sucesso.</span>
       </div>
     </div>
+    ${evidenciaSectionHtml("parts")}
   `;
 }
 function partsAvailableYears(){
@@ -890,6 +1002,7 @@ function wirePartsMensal(){
     setTimeout(()=>msg.classList.remove("show"), 2200);
     renderView();
   });
+  wireEvidenciaSection("parts");
 }
 function wirePartsBulk(){
   document.getElementById("parts-bulk-year").addEventListener("change", e=>{
@@ -935,7 +1048,6 @@ function wirePartsCharts(){
     state.charts.pecasTaxa = new Chart(pc, {
       data:{ labels, datasets:[
         { type:"bar", label:"Faturadas", data:pecasFat, backgroundColor:"#EBD9AE", borderRadius:5, maxBarThickness:22, yAxisID:"y" },
-        { type:"bar", label:"Com solicitação", data:pecasSol, backgroundColor:"#D9A441", borderRadius:5, maxBarThickness:22, yAxisID:"y" },
         { type:"line", label:"Taxa (%)", data:pecasTaxa, borderColor:"#C15A2E", backgroundColor:"#C15A2E", tension:.3, pointRadius:4, yAxisID:"y1" }
       ]},
       options:comboChartOpts()
@@ -1147,6 +1259,7 @@ function viewQualidade(){
         </div>
       </fieldset>
     </div>
+    ${evidenciaSectionHtml("qualidade")}
   `;
 }
 function wireQualidade(){
@@ -1190,6 +1303,7 @@ function wireQualidade(){
     msg.classList.add("show");
     setTimeout(()=>msg.classList.remove("show"), 2200);
   });
+  wireEvidenciaSection("qualidade");
 }
 function wireQualidadeCharts(){
   const months = sortedMonths();
@@ -1635,6 +1749,7 @@ function viewDataMensal(){
         </div>
       </fieldset>
     </div>
+    ${evidenciaSectionHtml("smartcloud")}
   `;
 }
 
@@ -1735,6 +1850,7 @@ function wireDataMensal(){
     msg.classList.add("show");
     setTimeout(()=>msg.classList.remove("show"), 2200);
   });
+  wireEvidenciaSection("smartcloud");
 }
 function wireDataBulk(){
   document.getElementById("bulk-year").addEventListener("change", e=>{
