@@ -6,7 +6,23 @@
 <title>Assistência Técnica · Colibri Móveis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+window.CHART_READY = new Promise((resolve)=>{
+  (function loadChart(urls){
+    const url = urls.shift();
+    if(!url){ console.error("Não foi possível carregar o Chart.js de nenhum CDN."); resolve(false); return; }
+    const s = document.createElement("script");
+    s.src = url;
+    s.onload = () => resolve(true);
+    s.onerror = () => loadChart(urls);
+    document.head.appendChild(s);
+  })([
+    "https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js",
+    "https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"
+  ]);
+});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
@@ -1785,7 +1801,7 @@ function wireDataBulk(){
 ============================================================ */
 (async function init(){
   document.getElementById("app").innerHTML = `<div style="padding:60px;font-family:'Inter',sans-serif;color:#5C6E65;">Carregando painel...</div>`;
-  await loadAll();
+  await Promise.all([loadAll(), window.CHART_READY]);
   render();
 })();
 </script>
