@@ -730,7 +730,7 @@ function deltaBlock(curr, prev, higherIsBetter, unit=""){
   const diff = curr - prev;
   if(Math.abs(diff) < 0.0001) return `<div class="delta flat">${ICONS.flat}Estável vs. mês anterior</div>`;
   const good = higherIsBetter ? diff>0 : diff<0;
-  const icon = diff>0 ? ICONS.up : ICONS.down;
+  const icon = good ? ICONS.up : ICONS.down;
   const cls = good ? "up" : "down";
   const sign = diff>0 ? "+" : "";
   return `<div class="delta ${cls}">${icon}${sign}${diff.toFixed(1)}${unit} vs. mês anterior</div>`;
@@ -750,21 +750,18 @@ function viewOverview(){
   }
 
   const taxaPecas = taxaAssistencia(m.pecasFaturadas, m.pecasSolicitadas);
-  const taxaAcess = taxaAssistencia(m.acessoriosFaturadas, m.acessoriosSolicitadas);
   const pTaxaPecas = p ? taxaAssistencia(p.pecasFaturadas, p.pecasSolicitadas) : undefined;
-  const pTaxaAcess = p ? taxaAssistencia(p.acessoriosFaturadas, p.acessoriosSolicitadas) : undefined;
 
   return `
     <div class="panel" style="padding:14px 20px; margin-bottom:20px;">
       <div class="panel-head" style="margin-bottom:8px;"><h3 style="font-size:13px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em;">Legenda das faixas</h3></div>
       ${faixaLegendHtml()}
     </div>
-    <div class="kpi-grid">
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">
       ${kpiCard("Score Madeira Madeira", m.score.toFixed(2), "/ 5", faixaFor(m.score).color, deltaBlock(m.score, p?.score, true), "Meta: " + state.metas.score.toFixed(2), faixaBadge(m.score))}
       ${kpiCard("Avaliação do cliente", m.avaliacao.toFixed(2), "/ 5", faixaFor(m.avaliacao).color, deltaBlock(m.avaliacao, p?.avaliacao, true), "Meta: " + state.metas.avaliacao.toFixed(2), faixaBadge(m.avaliacao))}
       ${kpiCard("Ocorrências no site", m.ocorrencias.toFixed(2), "%", faixaFor(m.ocorrencias, true).color, deltaBlock(m.ocorrencias, p?.ocorrencias, false, "pp"), "Meta: até " + state.metas.ocorrencias.toFixed(2) + "%", faixaBadge(m.ocorrencias, true))}
       ${kpiCard("Taxa assistência — Peças", taxaPecas.toFixed(2), "%", "var(--amber)", deltaBlock(taxaPecas, pTaxaPecas, false, "pp"))}
-      ${kpiCard("Taxa assistência — Acessórios", taxaAcess.toFixed(2), "%", "var(--rose)", deltaBlock(taxaAcess, pTaxaAcess, false, "pp"))}
     </div>
 
     <div class="panel">
