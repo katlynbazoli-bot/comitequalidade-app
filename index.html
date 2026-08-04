@@ -751,28 +751,19 @@ function viewParts(){
   const months = sortedMonths();
   const m = state.monthlyData[state.selectedMonth];
   const taxaPecas = m ? taxaAssistencia(m.pecasFaturadas, m.pecasSolicitadas) : 0;
-  const taxaAcess = m ? taxaAssistencia(m.acessoriosFaturadas, m.acessoriosSolicitadas) : 0;
 
   const resumo = (months.length===0) ? `<div class="panel">${emptyState("Nenhum dado lançado ainda","Lance faturado x solicitações de assistência logo abaixo.")}</div>`
     : !m ? `<div class="panel">${emptyState("Sem dados para "+fmtMonthLabel(state.selectedMonth), "Escolha outro mês, ou lance os números desse mês logo abaixo.")}</div>`
     : `
     <p class="hint" style="margin:-4px 0 18px;">Índice interno: quantidade com solicitação de assistência técnica em relação à quantidade faturada no mês.</p>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">
+    <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
       ${kpiCard("Peças faturadas", num(m.pecasFaturadas).toLocaleString("pt-BR"), "un.", "var(--amber)", "")}
       ${kpiCard("Peças c/ solicitação", num(m.pecasSolicitadas).toLocaleString("pt-BR"), "un.", "var(--amber)", "", `Taxa: <b style="color:var(--ink);">${taxaPecas.toFixed(2)}%</b>`)}
-      ${kpiCard("Acessórios faturados", num(m.acessoriosFaturadas).toLocaleString("pt-BR"), "un.", "var(--rose)", "")}
-      ${kpiCard("Acessórios c/ solicitação", num(m.acessoriosSolicitadas).toLocaleString("pt-BR"), "un.", "var(--rose)", "", `Taxa: <b style="color:var(--ink);">${taxaAcess.toFixed(2)}%</b>`)}
     </div>
 
-    <div class="two-col">
-      <div class="panel">
-        <div class="panel-head"><h3>Peças — Faturado x Solicitado</h3><span class="hint">Barras = qtd. · linha = taxa %</span></div>
-        <div class="chart-wrap"><canvas id="chart-pecas-taxa" class="chart-svg"></canvas></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>Acessórios — Faturado x Solicitado</h3><span class="hint">Barras = qtd. · linha = taxa %</span></div>
-        <div class="chart-wrap"><canvas id="chart-acessorios-taxa" class="chart-svg"></canvas></div>
-      </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Peças — Faturado x Solicitado</h3><span class="hint">Barras = qtd. · linha = taxa %</span></div>
+      <div class="chart-wrap"><canvas id="chart-pecas-taxa" class="chart-svg"></canvas></div>
     </div>
   `;
 
@@ -947,10 +938,6 @@ function wirePartsCharts(){
   const pecasFat = months.map(k=>num(state.monthlyData[k].pecasFaturadas));
   const pecasSol = months.map(k=>num(state.monthlyData[k].pecasSolicitadas));
   const pecasTaxa = months.map((k,i)=>taxaAssistencia(pecasFat[i], pecasSol[i]));
-  const acessFat = months.map(k=>num(state.monthlyData[k].acessoriosFaturadas));
-  const acessSol = months.map(k=>num(state.monthlyData[k].acessoriosSolicitadas));
-  const acessTaxa = months.map((k,i)=>taxaAssistencia(acessFat[i], acessSol[i]));
-
   const pc = document.getElementById("chart-pecas-taxa");
   if(pc){
     destroyChart("pecasTaxa");
@@ -959,18 +946,6 @@ function wirePartsCharts(){
         { type:"bar", label:"Faturadas", data:pecasFat, backgroundColor:"#EBD9AE", borderRadius:5, maxBarThickness:22, yAxisID:"y" },
         { type:"bar", label:"Com solicitação", data:pecasSol, backgroundColor:"#D9A441", borderRadius:5, maxBarThickness:22, yAxisID:"y" },
         { type:"line", label:"Taxa (%)", data:pecasTaxa, borderColor:"#C15A2E", backgroundColor:"#C15A2E", tension:.3, pointRadius:4, yAxisID:"y1" }
-      ]},
-      options:comboChartOpts()
-    });
-  }
-  const ac = document.getElementById("chart-acessorios-taxa");
-  if(ac){
-    destroyChart("acessoriosTaxa");
-    state.charts.acessoriosTaxa = new Chart(ac, {
-      data:{ labels, datasets:[
-        { type:"bar", label:"Faturados", data:acessFat, backgroundColor:"#E9C6C8", borderRadius:5, maxBarThickness:22, yAxisID:"y" },
-        { type:"bar", label:"Com solicitação", data:acessSol, backgroundColor:"#BD5F63", borderRadius:5, maxBarThickness:22, yAxisID:"y" },
-        { type:"line", label:"Taxa (%)", data:acessTaxa, borderColor:"#7C3F44", backgroundColor:"#7C3F44", tension:.3, pointRadius:4, yAxisID:"y1" }
       ]},
       options:comboChartOpts()
     });
