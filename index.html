@@ -661,7 +661,7 @@ function viewOverview(){
         <h3>Score &amp; Avaliação — evolução mensal</h3>
         <span class="hint">Escala 0–5 · linha tracejada = meta</span>
       </div>
-      <div class="chart-wrap"><div id="chart-score" class="chart-svg"></div></div>
+      <div class="chart-wrap"><canvas id="chart-score" class="chart-svg"></canvas></div>
     </div>
 
     <div class="panel">
@@ -669,7 +669,7 @@ function viewOverview(){
         <h3>Ocorrências no Madeira Madeira</h3>
         <span class="hint">% de pedidos · linha tracejada = teto da meta · cor = faixa</span>
       </div>
-      <div class="chart-wrap"><div id="chart-ocorrencias" class="chart-svg"></div></div>
+      <div class="chart-wrap"><canvas id="chart-ocorrencias" class="chart-svg"></canvas></div>
     </div>
   `;
 }
@@ -767,11 +767,11 @@ function viewParts(){
     <div class="two-col">
       <div class="panel">
         <div class="panel-head"><h3>Peças — Faturado x Solicitado</h3><span class="hint">Barras = qtd. · linha = taxa %</span></div>
-        <div class="chart-wrap"><div id="chart-pecas-taxa" class="chart-svg"></div></div>
+        <div class="chart-wrap"><canvas id="chart-pecas-taxa" class="chart-svg"></canvas></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h3>Acessórios — Faturado x Solicitado</h3><span class="hint">Barras = qtd. · linha = taxa %</span></div>
-        <div class="chart-wrap"><div id="chart-acessorios-taxa" class="chart-svg"></div></div>
+        <div class="chart-wrap"><canvas id="chart-acessorios-taxa" class="chart-svg"></canvas></div>
       </div>
     </div>
   `;
@@ -995,7 +995,7 @@ function viewDiario(){
 
     <div class="panel">
       <div class="panel-head"><h3>Ocorrências por Setor</h3><span class="hint">${fmtMonthLabel(state.selectedMonth)}</span></div>
-      ${entries.length ? `<div class="chart-wrap short"><div id="chart-diario-setor" class="chart-svg"></div></div>` : emptyState("Sem ocorrências para gerar o gráfico neste mês","Registre uma ocorrência para começar.")}
+      ${entries.length ? `<div class="chart-wrap short"><canvas id="chart-diario-setor" class="chart-svg"></canvas></div>` : emptyState("Sem ocorrências para gerar o gráfico neste mês","Registre uma ocorrência para começar.")}
     </div>
 
     <div class="panel">
@@ -1139,9 +1139,9 @@ function viewQualidade(){
     </div>
 
     ${months.length ? `
-      <div class="panel"><div class="panel-head"><h3>Inspeção — Almoxarifado</h3><span class="hint">Amostra x não conforme · linha = % NC · tracejado = meta</span></div><div class="chart-wrap"><div id="chart-nc-almox" class="chart-svg"></div></div></div>
-      <div class="panel"><div class="panel-head"><h3>Inspeção — Estoque</h3><span class="hint">Amostra x não conforme · linha = % NC · tracejado = meta</span></div><div class="chart-wrap"><div id="chart-nc-estoque" class="chart-svg"></div></div></div>
-      <div class="panel"><div class="panel-head"><h3>Inspeção — Produto Acabado</h3><span class="hint">Amostra x não conforme · linha = % NC · tracejado = meta</span></div><div class="chart-wrap"><div id="chart-nc-prodacab" class="chart-svg"></div></div></div>
+      <div class="panel"><div class="panel-head"><h3>Inspeção — Almoxarifado</h3><span class="hint">Amostra x não conforme · linha = % NC · tracejado = meta</span></div><div class="chart-wrap"><canvas id="chart-nc-almox" class="chart-svg"></canvas></div></div>
+      <div class="panel"><div class="panel-head"><h3>Inspeção — Estoque</h3><span class="hint">Amostra x não conforme · linha = % NC · tracejado = meta</span></div><div class="chart-wrap"><canvas id="chart-nc-estoque" class="chart-svg"></canvas></div></div>
+      <div class="panel"><div class="panel-head"><h3>Inspeção — Produto Acabado</h3><span class="hint">Amostra x não conforme · linha = % NC · tracejado = meta</span></div><div class="chart-wrap"><canvas id="chart-nc-prodacab" class="chart-svg"></canvas></div></div>
     ` : `<div class="panel">${emptyState("Nenhuma inspeção lançada ainda","Preencha os números do mês logo abaixo.")}</div>`}
 
     <div class="panel">
@@ -1563,15 +1563,15 @@ function resultadoSmartCloudHtml(){
         <div class="three-col">
           <div>
             <div style="font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Score (0–5)</div>
-            <div class="chart-wrap short"><div id="chart-sc-score" class="chart-svg"></div></div>
+            <div class="chart-wrap short"><canvas id="chart-sc-score" class="chart-svg"></canvas></div>
           </div>
           <div>
             <div style="font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Ocorrências (%)</div>
-            <div class="chart-wrap short"><div id="chart-sc-ocorrencias" class="chart-svg"></div></div>
+            <div class="chart-wrap short"><canvas id="chart-sc-ocorrencias" class="chart-svg"></canvas></div>
           </div>
           <div>
             <div style="font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Avaliação (0–5)</div>
-            <div class="chart-wrap short"><div id="chart-sc-avaliacao" class="chart-svg"></div></div>
+            <div class="chart-wrap short"><canvas id="chart-sc-avaliacao" class="chart-svg"></canvas></div>
           </div>
         </div>
       `}
