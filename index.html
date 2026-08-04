@@ -758,7 +758,7 @@ function viewParts(){
     <p class="hint" style="margin:-4px 0 18px;">Índice interno: quantidade com solicitação de assistência técnica em relação à quantidade faturada no mês.</p>
     <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
       ${kpiCard("Peças faturadas", num(m.pecasFaturadas).toLocaleString("pt-BR"), "un.", "var(--amber)", "")}
-      ${kpiCard("Peças c/ solicitação", num(m.pecasSolicitadas).toLocaleString("pt-BR"), "un.", "var(--amber)", "", `Taxa: <b style="color:var(--ink);">${taxaPecas.toFixed(2)}%</b>`)}
+      ${kpiCard("Peças / Acessório", num(m.pecasSolicitadas).toLocaleString("pt-BR"), "un.", "var(--amber)", "", `Taxa: <b style="color:var(--ink);">${taxaPecas.toFixed(2)}%</b>`)}
     </div>
 
     <div class="panel">
@@ -798,9 +798,6 @@ function viewPartsMensal(){
           <div class="field"><label>Peças faturadas</label><input type="number" step="1" min="0" id="pf-pecas-fat" value="${d.pecasFaturadas}"></div>
           <div class="field"><label>Peças c/ solicitação de assistência</label><input type="number" step="1" min="0" id="pf-pecas-sol" value="${d.pecasSolicitadas}"></div>
           <div class="field"><label>Taxa de assistência — Peças</label><div id="pf-taxa-pecas" style="padding:10px 0; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; color:var(--teal-dark);">${taxaAssistencia(d.pecasFaturadas, d.pecasSolicitadas).toFixed(2)}%</div></div>
-          <div class="field"><label>Acessórios faturados</label><input type="number" step="1" min="0" id="pf-acess-fat" value="${d.acessoriosFaturadas}"></div>
-          <div class="field"><label>Acessórios c/ solicitação de assistência</label><input type="number" step="1" min="0" id="pf-acess-sol" value="${d.acessoriosSolicitadas}"></div>
-          <div class="field"><label>Taxa de assistência — Acessórios</label><div id="pf-taxa-acess" style="padding:10px 0; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; color:var(--teal-dark);">${taxaAssistencia(d.acessoriosFaturadas, d.acessoriosSolicitadas).toFixed(2)}%</div></div>
         </div>
       </fieldset>
       <div class="save-bar">
@@ -877,21 +874,12 @@ function wirePartsMensal(){
     const sol = num(document.getElementById("pf-pecas-sol").value);
     document.getElementById("pf-taxa-pecas").textContent = taxaAssistencia(fat, sol).toFixed(2) + "%";
   };
-  const updateTaxaAcess = ()=>{
-    const fat = num(document.getElementById("pf-acess-fat").value);
-    const sol = num(document.getElementById("pf-acess-sol").value);
-    document.getElementById("pf-taxa-acess").textContent = taxaAssistencia(fat, sol).toFixed(2) + "%";
-  };
   document.getElementById("pf-pecas-fat").addEventListener("input", updateTaxaPecas);
   document.getElementById("pf-pecas-sol").addEventListener("input", updateTaxaPecas);
-  document.getElementById("pf-acess-fat").addEventListener("input", updateTaxaAcess);
-  document.getElementById("pf-acess-sol").addEventListener("input", updateTaxaAcess);
   document.getElementById("save-parts-month").addEventListener("click", async ()=>{
     const entry = state.monthlyData[state.selectedMonth] ? JSON.parse(JSON.stringify(state.monthlyData[state.selectedMonth])) : currentMonthDraft();
     entry.pecasFaturadas = num(document.getElementById("pf-pecas-fat").value);
     entry.pecasSolicitadas = num(document.getElementById("pf-pecas-sol").value);
-    entry.acessoriosFaturadas = num(document.getElementById("pf-acess-fat").value);
-    entry.acessoriosSolicitadas = num(document.getElementById("pf-acess-sol").value);
     state.monthlyData[state.selectedMonth] = entry;
     await saveMonthlyData();
     const msg = document.getElementById("save-parts-msg");
