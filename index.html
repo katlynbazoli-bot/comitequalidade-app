@@ -1379,8 +1379,7 @@ function kanbanColumn(statusKey){
     </div>
   `;
 }
-function actionEmailHref(a){
-  const subject = `Ação do Plano de Qualidade: ${a.title}`;
+function buildActionMessage(a){
   const linhas = [
     `Olá${a.responsavel ? " "+a.responsavel : ""},`,
     "",
@@ -1396,7 +1395,36 @@ function actionEmailHref(a){
     "",
     "Obrigado(a)."
   ].filter(l=>l!==null).join("\n");
-  return `mailto:${encodeURIComponent(a.responsavelEmail||"")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(linhas)}`;
+  return linhas;
+}
+function openMessageModal(a){
+  const text = buildActionMessage(a);
+  const root = document.getElementById("modal-root");
+  root.innerHTML = `
+    <div class="modal-overlay" id="modal-overlay">
+      <div class="modal">
+        <h3>Mensagem pronta${a.responsavel ? " — "+escapeHtml(a.responsavel) : ""}</h3>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-6px;">Copie e envie manualmente (Teams, WhatsApp, e-mail, etc).</p>
+        <div class="field"><textarea id="msg-text" readonly style="min-height:180px;font-family:inherit;">${escapeHtml(text)}</textarea></div>
+        <div class="modal-actions">
+          <button class="btn ghost" id="m-cancel">Fechar</button>
+          <button class="btn primary" id="m-copy">${ICONS.mail} Copiar mensagem</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById("m-cancel").addEventListener("click", closeModal);
+  document.getElementById("modal-overlay").addEventListener("click", e=>{ if(e.target.id==="modal-overlay") closeModal(); });
+  document.getElementById("m-copy").addEventListener("click", async ()=>{
+    const ta = document.getElementById("msg-text");
+    ta.focus(); ta.select();
+    let copied = false;
+    try{ await navigator.clipboard.writeText(text); copied = true; }
+    catch(e){ try{ copied = document.execCommand("copy"); }catch(e2){ copied = false; } }
+    const btn = document.getElementById("m-copy");
+    btn.textContent = copied ? "Copiado!" : "Selecione e copie (Ctrl+C)";
+    setTimeout(()=>{ btn.innerHTML = `${ICONS.mail} Copiar mensagem`; }, 1800);
+  });
 }
 function cardHtml(a){
   const meta = STATUS_META[a.status];
@@ -1415,7 +1443,7 @@ function cardHtml(a){
           ${Object.entries(STATUS_META).map(([k,v])=>`<option value="${k}" ${k===a.status?"selected":""}>${v.label}</option>`).join("")}
         </select>
         <div class="kbtns">
-          <a class="icon-btn" href="${actionEmailHref(a)}" title="Enviar e-mail ao responsável">${ICONS.mail}</a>
+          <button class="icon-btn msg-action" data-id="${a.id}" title="Gerar mensagem pra copiar">${ICONS.mail}</button>
           <button class="icon-btn edit-action" data-id="${a.id}" title="Editar">${ICONS.edit}</button>
           <button class="icon-btn del-action" data-id="${a.id}" title="Excluir">${ICONS.trash}</button>
         </div>
@@ -1425,6 +1453,10 @@ function cardHtml(a){
 }
 function wirePlan(){
   document.getElementById("btn-new-action")?.addEventListener("click", ()=>openActionModal());
+  document.querySelectorAll(".msg-action").forEach(b=>b.addEventListener("click",()=>{
+    const a = state.actions.find(x=>x.id===b.dataset.id);
+    openMessageModal(a);
+  }));
   document.querySelectorAll(".edit-action").forEach(b=>b.addEventListener("click",()=>{
     const a = state.actions.find(x=>x.id===b.dataset.id);
     openActionModal(a);
