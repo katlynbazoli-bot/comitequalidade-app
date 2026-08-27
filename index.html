@@ -189,25 +189,11 @@ window.CHART_READY = new Promise((resolve)=>{
   fieldset{ border:none; padding:0; margin:0 0 24px; }
   legend{ font-size:14px; font-weight:700; color:var(--teal-dark); margin-bottom:12px; padding:0; font-family:'Fraunces',serif; }
 
-  /* ---------- Evidências ---------- */
-  .evid-upload{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-  .evid-hint{ font-size:12px; color:var(--ink-faint); }
-  .evid-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; }
-  .evid-item{ position:relative; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#FBFCFB; }
-  .evid-item a{ display:block; color:inherit; text-decoration:none; }
-  .evid-thumb{ width:100%; height:90px; object-fit:cover; display:block; background:#EAEFE9; }
-  .evid-file{ width:100%; height:90px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--ink-faint); background:#EAEFE9; }
-  .evid-file svg{ width:26px; height:26px; }
-  .evid-name{ font-size:11px; padding:6px 8px; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-top:1px solid var(--border); }
-  .evid-remove{ all:unset; position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:8px; background:rgba(255,255,255,.92); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--rose); }
-  .evid-remove:hover{ background:#fff; }
-  .evid-remove svg{ width:13px; height:13px; }
-  .evid-empty{ font-size:12.5px; color:var(--ink-faint); padding:4px 0 8px; }
-
   /* ---------- Kanban ---------- */
   .kanban-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
-  .kanban{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; align-items:start; }
-  @media (max-width:1000px){ .kanban{ grid-template-columns:1fr; } }
+  .kanban{ display:grid; grid-template-columns:repeat(4,1fr); gap:18px; align-items:start; }
+  @media (max-width:1200px){ .kanban{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:640px){ .kanban{ grid-template-columns:1fr; } }
   .kcol{ background:var(--bg-soft); border-radius:16px; padding:14px; min-height:120px; border:1px dashed var(--border); }
   .kcol.dragover{ border-color:var(--teal); background:var(--teal-pale); }
   .kcol-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding:0 4px; }
@@ -307,6 +293,7 @@ const MONTH_NAMES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out"
 const STATUS_META = {
   "afazer":   { label:"A Fazer",        color:"var(--amber)", dot:"#D9A441" },
   "andamento":{ label:"Em Andamento",   color:"var(--teal)",  dot:"#1F6F63" },
+  "congelada":{ label:"Congelada",      color:"#6C87A0",      dot:"#6C87A0" },
   "concluido":{ label:"Concluído",      color:"var(--sage)",  dot:"#7C9E70" }
 };
 function escapeHtml(s){ return (s??"").toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -331,7 +318,6 @@ const state = {
   actions: [],        // { id, title, desc, responsavel, prazo, status }
   diario: [],         // { id, date, setor, gravidade, descricao, acao }
   treinamentos: [],   // { id, date, nome, area, participantes, status }
-  evidencias: { parts:{}, smartcloud:{}, qualidade:{} }, // { [secao]: { "2026-08": [ {id,name,type,size,dataUrl,addedAt} ] } }
   loaded: false,
   charts: {}          // chart.js instances keyed by canvas id
 };
@@ -384,10 +370,6 @@ async function loadAll(){
     const v = await storageGet("colibri-at-treinamentos");
     state.treinamentos = v || [];
   }catch(e){ state.treinamentos = []; }
-  try{
-    const v = await storageGet("colibri-at-evidencias");
-    state.evidencias = v || { parts:{}, smartcloud:{}, qualidade:{} };
-  }catch(e){ state.evidencias = { parts:{}, smartcloud:{}, qualidade:{} }; }
 
   const keys = Object.keys(state.monthlyData).sort();
   if(keys.length) state.selectedMonth = keys[keys.length-1];
@@ -413,95 +395,6 @@ async function saveTreinamentos(){
   try{ await storageSet("colibri-at-treinamentos", state.treinamentos); }
   catch(e){ console.error("Falha ao salvar treinamentos", e); }
 }
-async function saveEvidencias(){
-  try{ await storageSet("colibri-at-evidencias", state.evidencias); }
-  catch(e){ console.error("Falha ao salvar evidências", e); }
-}
-
-/* ============================================================
-   EVIDÊNCIAS (imagens/arquivos mês a mês) — componente reutilizável
-   Seções: "parts" (Análise Gestão Pós Venda), "smartcloud", "qualidade"
-============================================================ */
-const EVID_MAX_BYTES = 5 * 1024 * 1024; // 5MB por arquivo
-function evidenciasForMonth(section){
-  return (state.evidencias[section] && state.evidencias[section][state.selectedMonth]) || [];
-}
-function fmtFileSize(bytes){
-  if(!bytes) return "0 KB";
-  if(bytes < 1024*1024) return Math.max(1, Math.round(bytes/1024)) + " KB";
-  return (bytes/(1024*1024)).toFixed(1) + " MB";
-}
-function fileToDataUrl(file){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = ()=>resolve(reader.result);
-    reader.onerror = ()=>reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-function evidenciaSectionHtml(section){
-  const items = evidenciasForMonth(section);
-  return `
-    <div class="panel">
-      <fieldset style="margin-bottom:0;">
-        <legend>Evidências — ${fmtMonthLabel(state.selectedMonth)}</legend>
-        <div class="evid-upload">
-          <label class="btn ghost" for="evid-input-${section}" style="cursor:pointer;">${ICONS.clip}Adicionar imagens/arquivos</label>
-          <input type="file" id="evid-input-${section}" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none;">
-          <span class="evid-hint">Imagens, PDF ou planilhas · até 5MB por arquivo</span>
-        </div>
-        ${items.length ? `
-          <div class="evid-grid" id="evid-grid-${section}">
-            ${items.map(it=>`
-              <div class="evid-item" data-id="${it.id}">
-                <a href="${it.dataUrl}" download="${escapeHtml(it.name)}" target="_blank" rel="noopener">
-                  ${it.type && it.type.startsWith("image/")
-                    ? `<img class="evid-thumb" src="${it.dataUrl}" alt="${escapeHtml(it.name)}">`
-                    : `<div class="evid-file">${ICONS.file}</div>`}
-                  <div class="evid-name">${escapeHtml(it.name)}</div>
-                </a>
-                <button class="evid-remove" data-remove="${it.id}" title="Remover">${ICONS.trash}</button>
-              </div>
-            `).join("")}
-          </div>
-        ` : `<div class="evid-empty">Nenhuma evidência anexada para este mês ainda.</div>`}
-      </fieldset>
-    </div>
-  `;
-}
-function wireEvidenciaSection(section){
-  const input = document.getElementById(`evid-input-${section}`);
-  if(!input) return;
-  input.addEventListener("change", async ()=>{
-    const files = Array.from(input.files || []);
-    if(!files.length) return;
-    const tooBig = files.filter(f=>f.size > EVID_MAX_BYTES);
-    const valid = files.filter(f=>f.size <= EVID_MAX_BYTES);
-    for(const file of valid){
-      try{
-        const dataUrl = await fileToDataUrl(file);
-        if(!state.evidencias[section]) state.evidencias[section] = {};
-        if(!state.evidencias[section][state.selectedMonth]) state.evidencias[section][state.selectedMonth] = [];
-        state.evidencias[section][state.selectedMonth].push({
-          id: uid(), name: file.name, type: file.type, size: file.size, dataUrl, addedAt: new Date().toISOString()
-        });
-      }catch(e){ console.error("Falha ao ler arquivo", file.name, e); }
-    }
-    await saveEvidencias();
-    if(tooBig.length) alert(`${tooBig.length} arquivo(s) não foram anexados por excederem 5MB: ${tooBig.map(f=>f.name).join(", ")}`);
-    input.value = "";
-    renderView();
-  });
-  document.querySelectorAll(`#evid-grid-${section} [data-remove]`).forEach(btn=>{
-    btn.addEventListener("click", async ()=>{
-      const id = btn.getAttribute("data-remove");
-      const arr = state.evidencias[section]?.[state.selectedMonth] || [];
-      state.evidencias[section][state.selectedMonth] = arr.filter(it=>it.id !== id);
-      await saveEvidencias();
-      renderView();
-    });
-  });
-}
 
 /* ============================================================
    ICONS (inline svg, stroke-based, consistent set)
@@ -523,8 +416,7 @@ const ICONS = {
   cloud:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 18a4.5 4.5 0 01-.5-8.98A5.5 5.5 0 0117 8a4 4 0 010 8H7z" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
   qualidade:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3v2h6V3M8 11l2.5 2.5L16 8"/></svg>`,
   treino:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9l10-4 10 4-10 4-10-4z" stroke-linejoin="round"/><path d="M6 11v5c0 1.5 2.5 3 6 3s6-1.5 6-3v-5M22 9v6" stroke-linecap="round"/></svg>`,
-  clip:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.5l-8.5 8.5a4.5 4.5 0 01-6.36-6.36L14.5 6.28a3 3 0 014.24 4.24L10.4 19.1a1.5 1.5 0 01-2.12-2.12l7.78-7.78" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  file:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" stroke-linejoin="round"/><path d="M14 3v5h5"/></svg>`,
+  mail:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   bird:`<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 34c6-2 10-8 20-8 12 0 16 10 26 6-4 8-12 12-20 12-4 0-6 2-6 6 0 3 2 5 5 6-6 2-12 0-15-5-2 3-6 4-9 3 3-2 4-5 3-8-6-2-10-7-4-12z" fill="#EAF3F0" opacity="0.9"/><circle cx="46" cy="30" r="2" fill="#123E37"/><path d="M50 28c3-1 6-1 8 1-2 2-5 3-8 2z" fill="#C15A2E"/></svg>`
 };
 
@@ -730,7 +622,7 @@ function deltaBlock(curr, prev, higherIsBetter, unit=""){
   const diff = curr - prev;
   if(Math.abs(diff) < 0.0001) return `<div class="delta flat">${ICONS.flat}Estável vs. mês anterior</div>`;
   const good = higherIsBetter ? diff>0 : diff<0;
-  const icon = good ? ICONS.up : ICONS.down;
+  const icon = diff>0 ? ICONS.up : ICONS.down;
   const cls = good ? "up" : "down";
   const sign = diff>0 ? "+" : "";
   return `<div class="delta ${cls}">${icon}${sign}${diff.toFixed(1)}${unit} vs. mês anterior</div>`;
@@ -750,18 +642,21 @@ function viewOverview(){
   }
 
   const taxaPecas = taxaAssistencia(m.pecasFaturadas, m.pecasSolicitadas);
+  const taxaAcess = taxaAssistencia(m.acessoriosFaturadas, m.acessoriosSolicitadas);
   const pTaxaPecas = p ? taxaAssistencia(p.pecasFaturadas, p.pecasSolicitadas) : undefined;
+  const pTaxaAcess = p ? taxaAssistencia(p.acessoriosFaturadas, p.acessoriosSolicitadas) : undefined;
 
   return `
     <div class="panel" style="padding:14px 20px; margin-bottom:20px;">
       <div class="panel-head" style="margin-bottom:8px;"><h3 style="font-size:13px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em;">Legenda das faixas</h3></div>
       ${faixaLegendHtml()}
     </div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">
+    <div class="kpi-grid">
       ${kpiCard("Score Madeira Madeira", m.score.toFixed(2), "/ 5", faixaFor(m.score).color, deltaBlock(m.score, p?.score, true), "Meta: " + state.metas.score.toFixed(2), faixaBadge(m.score))}
       ${kpiCard("Avaliação do cliente", m.avaliacao.toFixed(2), "/ 5", faixaFor(m.avaliacao).color, deltaBlock(m.avaliacao, p?.avaliacao, true), "Meta: " + state.metas.avaliacao.toFixed(2), faixaBadge(m.avaliacao))}
       ${kpiCard("Ocorrências no site", m.ocorrencias.toFixed(2), "%", faixaFor(m.ocorrencias, true).color, deltaBlock(m.ocorrencias, p?.ocorrencias, false, "pp"), "Meta: até " + state.metas.ocorrencias.toFixed(2) + "%", faixaBadge(m.ocorrencias, true))}
       ${kpiCard("Taxa assistência — Peças", taxaPecas.toFixed(2), "%", "var(--amber)", deltaBlock(taxaPecas, pTaxaPecas, false, "pp"))}
+      ${kpiCard("Taxa assistência — Acessórios", taxaAcess.toFixed(2), "%", "var(--rose)", deltaBlock(taxaAcess, pTaxaAcess, false, "pp"))}
     </div>
 
     <div class="panel">
@@ -915,7 +810,6 @@ function viewPartsMensal(){
         <span class="save-msg" id="save-parts-msg">Salvo com sucesso.</span>
       </div>
     </div>
-    ${evidenciaSectionHtml("parts")}
   `;
 }
 function partsAvailableYears(){
@@ -999,7 +893,6 @@ function wirePartsMensal(){
     setTimeout(()=>msg.classList.remove("show"), 2200);
     renderView();
   });
-  wireEvidenciaSection("parts");
 }
 function wirePartsBulk(){
   document.getElementById("parts-bulk-year").addEventListener("change", e=>{
@@ -1045,6 +938,7 @@ function wirePartsCharts(){
     state.charts.pecasTaxa = new Chart(pc, {
       data:{ labels, datasets:[
         { type:"bar", label:"Faturadas", data:pecasFat, backgroundColor:"#EBD9AE", borderRadius:5, maxBarThickness:22, yAxisID:"y" },
+        { type:"bar", label:"Com solicitação", data:pecasSol, backgroundColor:"#D9A441", borderRadius:5, maxBarThickness:22, yAxisID:"y" },
         { type:"line", label:"Taxa (%)", data:pecasTaxa, borderColor:"#C15A2E", backgroundColor:"#C15A2E", tension:.3, pointRadius:4, yAxisID:"y1" }
       ]},
       options:comboChartOpts()
@@ -1256,7 +1150,6 @@ function viewQualidade(){
         </div>
       </fieldset>
     </div>
-    ${evidenciaSectionHtml("qualidade")}
   `;
 }
 function wireQualidade(){
@@ -1300,7 +1193,6 @@ function wireQualidade(){
     msg.classList.add("show");
     setTimeout(()=>msg.classList.remove("show"), 2200);
   });
-  wireEvidenciaSection("qualidade");
 }
 function wireQualidadeCharts(){
   const months = sortedMonths();
@@ -1459,7 +1351,7 @@ function openTreinoModal(entry){
    VIEW: PLANO DE AÇÃO (Kanban por status)
 ============================================================ */
 function viewPlan(){
-  const cols = ["afazer","andamento","concluido"];
+  const cols = ["afazer","andamento","congelada","concluido"];
   return `
     <div class="kanban-toolbar">
       <span class="hint" style="color:var(--ink-faint); font-size:13px;">${state.actions.length} ação(ões) no total</span>
@@ -1487,6 +1379,25 @@ function kanbanColumn(statusKey){
     </div>
   `;
 }
+function actionEmailHref(a){
+  const subject = `Ação do Plano de Qualidade: ${a.title}`;
+  const linhas = [
+    `Olá${a.responsavel ? " "+a.responsavel : ""},`,
+    "",
+    "Segue lembrete sobre a ação do Plano de Ação da Qualidade:",
+    "",
+    `Ação: ${a.title}`,
+    a.desc ? `Descrição: ${a.desc}` : null,
+    `Status atual: ${STATUS_META[a.status]?.label || a.status}`,
+    a.prazo ? `Prazo: ${a.prazo.split("-").reverse().join("/")}` : null,
+    a.dataConclusao ? `Concluído em: ${a.dataConclusao.split("-").reverse().join("/")}` : null,
+    "",
+    "Por favor, nos atualize sobre o andamento.",
+    "",
+    "Obrigado(a)."
+  ].filter(l=>l!==null).join("\n");
+  return `mailto:${encodeURIComponent(a.responsavelEmail||"")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(linhas)}`;
+}
 function cardHtml(a){
   const meta = STATUS_META[a.status];
   const overdue = isOverdue(a.prazo, a.status);
@@ -1497,12 +1408,14 @@ function cardHtml(a){
       <div class="kmeta">
         ${a.responsavel ? `<span class="badge">👤 ${escapeHtml(a.responsavel)}</span>` : ""}
         ${a.prazo ? `<span class="badge ${overdue?'overdue':''}">📅 ${a.prazo.split("-").reverse().join("/")}${overdue?" · atrasado":""}</span>` : ""}
+        ${a.dataConclusao ? `<span class="badge">✅ Concluído em ${a.dataConclusao.split("-").reverse().join("/")}</span>` : ""}
       </div>
       <div class="kactions">
         <select class="move" data-id="${a.id}">
           ${Object.entries(STATUS_META).map(([k,v])=>`<option value="${k}" ${k===a.status?"selected":""}>${v.label}</option>`).join("")}
         </select>
         <div class="kbtns">
+          <a class="icon-btn" href="${actionEmailHref(a)}" title="Enviar e-mail ao responsável">${ICONS.mail}</a>
           <button class="icon-btn edit-action" data-id="${a.id}" title="Editar">${ICONS.edit}</button>
           <button class="icon-btn del-action" data-id="${a.id}" title="Excluir">${ICONS.trash}</button>
         </div>
@@ -1524,7 +1437,11 @@ function wirePlan(){
   }));
   document.querySelectorAll("select.move").forEach(sel=>sel.addEventListener("change", async ()=>{
     const a = state.actions.find(x=>x.id===sel.dataset.id);
-    if(a){ a.status = sel.value; await saveActions(); renderView(); }
+    if(a){
+      a.status = sel.value;
+      if(a.status==="concluido" && !a.dataConclusao) a.dataConclusao = new Date().toISOString().slice(0,10);
+      await saveActions(); renderView();
+    }
   }));
 
   // drag and drop
@@ -1540,13 +1457,17 @@ function wirePlan(){
       const dragging = document.querySelector(".kcard.dragging");
       if(!dragging) return;
       const a = state.actions.find(x=>x.id===dragging.dataset.id);
-      if(a){ a.status = col.dataset.status; await saveActions(); renderView(); }
+      if(a){
+        a.status = col.dataset.status;
+        if(a.status==="concluido" && !a.dataConclusao) a.dataConclusao = new Date().toISOString().slice(0,10);
+        await saveActions(); renderView();
+      }
     });
   });
 }
 function openActionModal(action){
   const editing = !!action;
-  const a = action || { id:uid(), title:"", desc:"", responsavel:"", prazo:"", status:"afazer" };
+  const a = action || { id:uid(), title:"", desc:"", responsavel:"", responsavelEmail:"", prazo:"", dataConclusao:"", status:"afazer" };
   const root = document.getElementById("modal-root");
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay">
@@ -1555,7 +1476,9 @@ function openActionModal(action){
         <div class="field"><label>Título</label><input id="m-title" value="${escapeHtml(a.title)}" placeholder="Ex.: Revisar embalagem da linha X"></div>
         <div class="field"><label>Descrição</label><textarea id="m-desc" placeholder="Detalhe o que precisa ser feito...">${escapeHtml(a.desc)}</textarea></div>
         <div class="field"><label>Responsável</label><input id="m-resp" value="${escapeHtml(a.responsavel)}" placeholder="Nome"></div>
+        <div class="field"><label>E-mail do responsável</label><input type="email" id="m-resp-email" value="${escapeHtml(a.responsavelEmail||"")}" placeholder="nome@colibrimoveis.com.br"></div>
         <div class="field"><label>Prazo</label><input type="date" id="m-prazo" value="${a.prazo||""}"></div>
+        <div class="field"><label>Data de conclusão</label><input type="date" id="m-conclusao" value="${a.dataConclusao||""}"></div>
         <div class="field"><label>Status</label>
           <div class="tag-select">
             ${Object.entries(STATUS_META).map(([k,v])=>`<span class="status-pill ${k===a.status?'selected':''}" data-status="${k}">${v.label}</span>`).join("")}
@@ -1583,7 +1506,9 @@ function openActionModal(action){
       id:a.id, title,
       desc: document.getElementById("m-desc").value.trim(),
       responsavel: document.getElementById("m-resp").value.trim(),
+      responsavelEmail: document.getElementById("m-resp-email").value.trim(),
       prazo: document.getElementById("m-prazo").value,
+      dataConclusao: document.getElementById("m-conclusao").value,
       status: selectedStatus
     };
     const idx = state.actions.findIndex(x=>x.id===a.id);
@@ -1746,7 +1671,6 @@ function viewDataMensal(){
         </div>
       </fieldset>
     </div>
-    ${evidenciaSectionHtml("smartcloud")}
   `;
 }
 
@@ -1847,7 +1771,6 @@ function wireDataMensal(){
     msg.classList.add("show");
     setTimeout(()=>msg.classList.remove("show"), 2200);
   });
-  wireEvidenciaSection("smartcloud");
 }
 function wireDataBulk(){
   document.getElementById("bulk-year").addEventListener("change", e=>{
